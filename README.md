@@ -125,5 +125,4 @@ Liens utiles
 - Swagger UI: http://localhost:8080/swagger-ui/index.html
 - Console H2: http://localhost:8080/h2-console
 
-Licence
-Projet académique/éducatif. Adapter selon vos besoins.
+Aide de Junie pour le projet
