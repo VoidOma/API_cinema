@@ -1,0 +1,108 @@
+Compte rendu de projet – TP Noté Cinéma
+Date: 2025-09-25 11:03
+
+1) Objet du projet
+Application REST (Spring Boot) pour la gestion d’un cinéma: films, salles, séances, réservations et utilisateurs (avec carte de fidélité). L’objectif est de proposer un back-end prêt à l’emploi avec endpoints documentés, persistance (H2 par défaut), validations, gestion d’erreurs et tests unitaires de base.
+
+2) Périmètre fonctionnel
+- Consulter la liste des films.
+- Ajouter des films (producteurs/distributeurs).
+- Ajouter des salles (administrateur).
+- Créer des séances (film + salle + date + heure).
+- Enregistrer des utilisateurs et acheter une carte de fidélité (valable 1 an).
+- Réserver des places pour une séance, avec contrôle de capacité et réduction fidélité.
+
+3) Stack et choix techniques
+- Java 17, Spring Boot 3 (web, validation, data-jpa).
+- Base H2 en mémoire (jdbc:h2:mem:productsdb). MySQL possible avec changement de configuration.
+- JPA/Hibernate pour la persistance.
+- Lombok pour le boilerplate (getters/setters/builders).
+- Springdoc OpenAPI 2.6.0 pour Swagger UI (/swagger-ui) et /v3/api-docs.
+- Tests JUnit 5, AssertJ (ex: FilmRepositoryTest).
+
+4) Modèle de données (entités principales)
+- Film: id, titre (not null), genre, duree, dateSortie (String), prix (BigDecimal), realisateur
+- Salle: id, nom (unique, not null), capacite (not null)
+- Seance: id, date (String ISO yyyy-MM-dd), heure (String HH:mm), salle (ManyToOne), film (ManyToOne)
+- Utilisateur: id, nom (not null), email, motDePasse (not null), carteFideliteActive (boolean), carteExpiration (String ISO, optionnel)
+- Reservation: id, utilisateur (ManyToOne), seance (ManyToOne), nombrePlaces (not null)
+
+Remarques:
+- Les champs date/heure ont été standardisés en String pour simplifier la saisie multi-formats, avec validation côté DTO/Service.
+
+5) DTOs & Mappers
+- FilmDto (+ FilmDtoMapper)
+- SalleCreateDto
+- SeanceCreateDto
+- UserRegistrationDto
+- ReservationRequestDto, ReservationResponseDto
+
+6) Endpoints REST (principaux)
+- Films
+  - GET /api/films
+  - POST /api/films (JSON ou form-data/x-www-form-urlencoded)
+- Salles
+  - POST /api/salles (JSON ou form-data/x-www-form-urlencoded)
+- Séances
+  - POST /api/seances (JSON ou form-data/x-www-form-urlencoded) – contraintes: date yyyy-MM-dd aujourd’hui/futur; heure HH:mm
+- Réservations
+  - POST /api/reservations (JSON ou form-data/x-www-form-urlencoded)
+- Utilisateurs
+  - POST /api/utilisateurs (JSON ou form-data/x-www-form-urlencoded)
+  - POST /api/utilisateurs/{id}/carte (achat carte fidélité valable 1 an)
+
+7) Règles métier & validations
+- Capacité: la somme des réservations d’une séance ne peut pas dépasser la capacité de la salle (CapacityExceededException).
+- Réductions: si carte de fidélité active et non expirée à la date du jour, remise de 10% sur le total.
+- Séances: la date doit être au format ISO yyyy-MM-dd et être aujourd’hui ou future; l’heure au format HH:mm.
+- Validations DTO (exemples):
+  - FilmDto: titre obligatoire; prix >= 0; duree > 0 si fournie.
+  - UserRegistrationDto: nom/email/motDePasse obligatoires; email au format valide.
+  - ReservationRequestDto: ids non nuls; nombrePlaces >= 1.
+- Gestion des erreurs: GlobalExceptionHandler couvre NotFound, BadRequest/CapacityExceeded, validation (400), et fallback 500.
+
+8) Documentation & outils
+- Swagger UI: http://localhost:8080/swagger-ui/index.html
+- OpenAPI JSON: http://localhost:8080/v3/api-docs
+- Console H2: http://localhost:8080/h2-console (JDBC: jdbc:h2:mem:productsdb)
+- README.md: inclut exemples complets de endpoints et commandes curl.
+
+9) Lancement & exécution
+- mvn spring-boot:run
+- Ou exécuter la classe: org.example.tp_noteqd_cinema.TpNoteQdCinemaApplication
+- JAR: mvn clean package puis java -jar target/TP_noteQD_cinema-0.0.1-SNAPSHOT.jar
+
+10) Tests
+- Lancer: mvn test
+- Exemple fourni: FilmRepositoryTest (enregistrement/lecture).
+
+11) Décisions & correctifs majeurs réalisés
+- Harmonisation H2: configuration jdbc:h2:mem:productsdb pour accès via console H2.
+- Validation d’entrée: annotations Bean Validation sur DTOs (titre, prix, etc.) + @Valid/@Validated dans les contrôleurs.
+- Support multipart/form-data et x-www-form-urlencoded: endpoints POST (films, salles, séances, réservations, utilisateurs) acceptent JSON et formulaires.
+- Dates/Heures en String: passage de LocalDate/LocalTime à String + validations par regex et logique métier (dates futures) dans SeanceService.
+- Gestion des e-mails saisis avec guillemets en formulaire: Binder global qui supprime les guillemets entourant et trim.
+- Swagger/OpenAPI: opérationIds uniques pour éviter les erreurs 500 lors de la génération /v3/api-docs.
+- Alignement des versions Spring Boot / springdoc pour éviter NoSuchMethodError avec ControllerAdviceBean.
+
+12) Limites actuelles
+- Pas de sécurité/authentification/autorisation (ex: rôles admin vs. producteur).
+- Pas de gestion de concurrence fine (sur-réservation possible si accès concurrents sans verrouillage optimiste/pessimiste).
+- Pas de pagination/tri/filtrage sur la liste des films.
+- Pas de gestion d’annulation de réservation.
+- Données en mémoire par défaut (H2) — non persistantes entre démarrages.
+
+13) Pistes d’amélioration
+- Ajouter Spring Security (JWT) avec rôles (ADMIN, PRODUCTEUR, UTILISATEUR).
+- Verrouillage optimiste (versioning) sur Reservation/Seance ou stratégies de réservation atomiques.
+- Endpoints GET pour consulter salles/séances/réservations, pagination.
+- Ajout de constraints DB (not null/unique) alignées avec validations.
+- Tests unitaires/IT supplémentaires (services, contrôleurs via MockMvc), tests d’intégration avec H2/MySQL.
+- Mécanisme de tarification avancée (heures creuses, promotions, catégories).
+
+14) Références
+- Swagger UI: /swagger-ui/index.html
+- H2 Console: /h2-console (User: sa, Password vide)
+- README.md du projet (détails d’utilisation et curl)
+
+Fin du compte rendu.
